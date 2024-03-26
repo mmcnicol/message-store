@@ -1,4 +1,4 @@
-package main
+package messagestore
 
 import (
 	"encoding/json"
