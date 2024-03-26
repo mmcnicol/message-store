@@ -58,6 +58,12 @@ func TestReadEntry(t *testing.T) {
 	if entry != nil && string(entry.Value) != string(entry1.Value) {
 		t.Fatalf("ReadEntry(), topic:%s, offset:%d, got:%v, want:%v ", topic, offset, entry.Value, entry1.Value)
 	}
+
+	entry, err = messageStore.ReadEntry(topic, offset+1)
+	if entry != nil {
+		t.Fatalf("ReadEntry(), topic:%s, offset:%d, entry should not be nil ", topic, offset)
+	}
+
 	/*
 		if !reflect.DeepEqual(entry, entry1) {
 			t.Fatalf("ReadEntry(), topic:%s, offset:%d, got:%+v, want:%+v ", topic, offset, entry, entry1)

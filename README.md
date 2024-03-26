@@ -16,6 +16,16 @@ entries in a topic cannot be queried.
 
 entries in a topic are immutable, meaning they cannot be modified after they are written.
 
+## public API
+
+NewMessageStore() *MessageStore
+
+SaveEntry(topic string, entry Entry) (int64, error)
+
+ReadEntry(topic string, offset int64) (*Entry, error)
+
+Delete(topic string)
+
 ## inspired by 
 
 kafka
