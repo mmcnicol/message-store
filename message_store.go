@@ -34,15 +34,25 @@ func (ms *MessageStore) Delete(topic string) error {
 
 	filename, ok := ms.topics[topic]
 	if !ok {
-		return fmt.Errorf("topic '%s' not found", topic)
+		//return fmt.Errorf("topic '%s' not found", topic)
+		//return nil
+		filename = topic + ".data"
+	} else {
+		delete(ms.topics, topic)
 	}
 
 	ms.mu.Lock()
 	defer ms.mu.Unlock()
 
-	// Delete the topic file
-	if err := os.Remove(topic); err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("failed to delete topic file: %v", err)
+	// Check if the file exists
+	if _, err := os.Stat(filename); os.IsNotExist(err) {
+		//fmt.Println("File does not exist")
+	} else {
+		//fmt.Println("File exists")
+		// Delete the topic file
+		if err := os.Remove(topic); err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("failed to delete topic file: %v", err)
+		}
 	}
 
 	// Delete the index file
@@ -61,6 +71,11 @@ func (ms *MessageStore) SaveEntry(topic string, entry Entry) (int64, error) {
 
 	filename, ok := ms.topics[topic]
 	if !ok {
+		//return 0, fmt.Errorf("topic '%s' not found", topic)
+		ms.topics[topic] = topic + ".data"
+	}
+	filename, ok = ms.topics[topic]
+	if !ok {
 		return 0, fmt.Errorf("topic '%s' not found", topic)
 	}
 
@@ -72,7 +87,7 @@ func (ms *MessageStore) SaveEntry(topic string, entry Entry) (int64, error) {
 	// Convert Entry to JSON
 	entryJSON, err := json.Marshal(entry)
 	if err != nil {
-		return 0, fmt.Errorf("Error marshaling Entry: ", err)
+		return 0, fmt.Errorf("Error marshaling Entry: %v", err)
 	}
 
 	// Convert JSON to byte slice
@@ -80,7 +95,7 @@ func (ms *MessageStore) SaveEntry(topic string, entry Entry) (int64, error) {
 
 	offset, err := ms.writeEntry(filename, entryBytes)
 	if err != nil {
-		return 0, fmt.Errorf("Error writing entry: ", err)
+		return 0, fmt.Errorf("Error writing entry: %v", err)
 	}
 
 	return offset, nil
@@ -94,7 +109,7 @@ func (ms *MessageStore) writeEntry(filename string, entry []byte) (int64, error)
 
 	file, err := os.OpenFile(filename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
 	if err != nil {
-		return 0, fmt.Errorf("Error opening file: ", err)
+		return 0, fmt.Errorf("Error opening file: %v", err)
 	}
 	defer file.Close()
 
@@ -122,7 +137,15 @@ func (ms *MessageStore) writeEntry(filename string, entry []byte) (int64, error)
 
 	indexFilename := filename + ".idx"
 	idx := newIndex(indexFilename)
-	offset := idx.maxOffset + 1
+	count, offset, err := idx.getMaxOffset()
+	if err != nil {
+		return 0, fmt.Errorf("failed to get getMaxOffset: %v", err)
+	}
+	if count == 0 {
+		offset = 0
+	} else {
+		offset = offset + 1
+	}
 
 	// write the index entry corresponding to the offset
 	indexEntry := &IndexEntry{
@@ -142,6 +165,11 @@ func (ms *MessageStore) writeEntry(filename string, entry []byte) (int64, error)
 func (ms *MessageStore) ReadEntry(topic string, offset int64) (*Entry, error) {
 
 	filename, ok := ms.topics[topic]
+	if !ok {
+		//return nil, fmt.Errorf("topic '%s' not found", topic)
+		ms.topics[topic] = topic + ".data"
+	}
+	filename, ok = ms.topics[topic]
 	if !ok {
 		return nil, fmt.Errorf("topic '%s' not found", topic)
 	}

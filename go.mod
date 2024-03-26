@@ -1,3 +1,3 @@
 module github.com/mmcnicol/message-store
 
-go 1.20
+go 1.21.4

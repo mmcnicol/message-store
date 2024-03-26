@@ -19,3 +19,7 @@
 
 # Go workspace file
 go.work
+
+# unit test output
+topic1.data
+topic1.data.idx

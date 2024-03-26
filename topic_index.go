@@ -33,9 +33,15 @@ func (idx *Index) delete() error {
 	idx.mu.Lock()
 	defer idx.mu.Unlock()
 
-	// Delete the index file
-	if err := os.Remove(idx.filename); err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("failed to delete index file: %v", err)
+	// Check if the file exists
+	if _, err := os.Stat(idx.filename); os.IsNotExist(err) {
+		//fmt.Println("File does not exist")
+	} else {
+		//fmt.Println("File exists")
+		// Delete the index file
+		if err := os.Remove(idx.filename); err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("failed to delete index file: %v", err)
+		}
 	}
 
 	return nil
@@ -88,18 +94,27 @@ func (idx *Index) getIndexEntry(offset int64) (IndexEntry, error) {
 	}
 }
 
-/*
 // getMaxOffset retrieves the maximum offset value from the index file
-func (idx *Index) getMaxOffset() (int64, error) {
+func (idx *Index) getMaxOffset() (int64, int64, error) {
+
 	idx.mu.Lock()
 	defer idx.mu.Unlock()
 
+	// Check if the file exists
+	if _, err := os.Stat(idx.filename); os.IsNotExist(err) {
+		//fmt.Println("File does not exist")
+		return 0, 0, nil
+	} else {
+		//fmt.Println("File exists")
+	}
+
 	file, err := os.Open(idx.filename)
 	if err != nil {
-		return 0, fmt.Errorf("failed to open index file: %v", err)
+		return 0, 0, fmt.Errorf("failed to open index file: %v", err)
 	}
 	defer file.Close()
 
+	var count int64
 	var offset int64
 	var offsetFound bool
 
@@ -110,17 +125,17 @@ func (idx *Index) getMaxOffset() (int64, error) {
 			break // End of file
 		}
 
+		count++
 		offset = entry.Offset
 		offsetFound = true
 	}
 
 	if !offsetFound {
-		return 0, fmt.Errorf("no offset found in index file")
+		return 0, 0, fmt.Errorf("no offset found in index file")
 	}
 
-	return offset, nil
+	return count, offset, nil
 }
-*/
 
 /*
 // getIndexEntry returns an index entry for a given offset value

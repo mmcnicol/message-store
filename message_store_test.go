@@ -1,7 +1,7 @@
 package main
 
 import (
-	"reflect"
+	"fmt"
 	"testing"
 )
 
@@ -44,10 +44,23 @@ func TestReadEntry(t *testing.T) {
 		t.Fatalf("SaveEntry(), entry:%v+, err: %v+", entry1, err)
 	}
 	entry, err := messageStore.ReadEntry(topic, offset)
+	//fmt.Println(entry.Value)
+	fmt.Println(string(entry.Value))
 	if err != nil {
 		t.Fatalf("ReadEntry(), topic:%s, offset:%d, err: %+v", topic, offset, err)
 	}
-	if !reflect.DeepEqual(entry, entry1) {
-		t.Fatalf("ReadEntry(), topic:%s, offset:%d, got:%+v, want:%+v ", topic, offset, entry, entry1)
+	if entry == nil {
+		t.Fatalf("ReadEntry(), topic:%s, offset:%d, entry should not be nil ", topic, offset)
 	}
+	if entry != nil && string(entry.Key) != string(entry1.Key) {
+		t.Fatalf("ReadEntry(), topic:%s, offset:%d, got:%v, want:%v ", topic, offset, entry.Key, entry1.Key)
+	}
+	if entry != nil && string(entry.Value) != string(entry1.Value) {
+		t.Fatalf("ReadEntry(), topic:%s, offset:%d, got:%v, want:%v ", topic, offset, entry.Value, entry1.Value)
+	}
+	/*
+		if !reflect.DeepEqual(entry, entry1) {
+			t.Fatalf("ReadEntry(), topic:%s, offset:%d, got:%+v, want:%+v ", topic, offset, entry, entry1)
+		}
+	*/
 }
