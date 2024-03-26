@@ -96,47 +96,10 @@ func (ms *MessageStore) SaveEntry(topic string, entry Entry) (int64, error) {
 	// Convert JSON to byte slice
 	entryBytes := []byte(entryJSON)
 
-	offset, err := ms.writeEntry(filename, entryBytes)
+	position, numberOfBytesWritten, err := ms.writeEntry(filename, entryBytes)
 	if err != nil {
 		return 0, fmt.Errorf("Error writing entry: %v", err)
 	}
-
-	return offset, nil
-}
-
-// writeEntry writes an entry to the specified topic file
-func (ms *MessageStore) writeEntry(filename string, entry []byte) (int64, error) {
-
-	ms.mu.Lock()
-	defer ms.mu.Unlock()
-
-	file, err := os.OpenFile(filename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
-	if err != nil {
-		return 0, fmt.Errorf("Error opening file: %v", err)
-	}
-	defer file.Close()
-
-	/*
-		if numberOfBytesWritten, err := file.Write(entry); err != nil {
-			return err
-		}
-		if numberOfBytesWritten, err := file.WriteString("\n"); err != nil {
-			return err
-		}
-	*/
-
-	// Write the entry to the file
-	numberOfBytesWritten, err := fmt.Fprintf(file, "%s\n", entry)
-	if err != nil {
-		return 0, fmt.Errorf("failed to write entry to index file: %v", err)
-	}
-
-	// Get the current offset in the file
-	fileInfo, err := file.Stat()
-	if err != nil {
-		return 0, fmt.Errorf("failed to get file info: %v", err)
-	}
-	position := fileInfo.Size() - int64(numberOfBytesWritten)
 
 	indexFilename := filename + ".idx"
 	idx := newIndex(indexFilename)
@@ -164,6 +127,34 @@ func (ms *MessageStore) writeEntry(filename string, entry []byte) (int64, error)
 	return offset, nil
 }
 
+// writeEntry writes an entry to the specified topic file
+func (ms *MessageStore) writeEntry(filename string, entry []byte) (int64, int64, error) {
+
+	ms.mu.Lock()
+	defer ms.mu.Unlock()
+
+	// Open the topic file for writing (append only)
+	file, err := os.OpenFile(filename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
+	if err != nil {
+		return 0, 0, fmt.Errorf("Error opening file: %v", err)
+	}
+	defer file.Close()
+
+	// Get the current offset in the file
+	fileInfo, err := file.Stat()
+	if err != nil {
+		return 0, 0, fmt.Errorf("failed to get file info: %v", err)
+	}
+
+	// Write the entry to the file
+	numberOfBytesWritten, err := fmt.Fprintf(file, "%s\n", entry)
+	if err != nil {
+		return 0, 0, fmt.Errorf("failed to write entry to index file: %v", err)
+	}
+
+	return fileInfo.Size(), int64(numberOfBytesWritten), nil
+}
+
 // ReadEntry reads an entry from the given offset from the specified topic
 func (ms *MessageStore) ReadEntry(topic string, offset int64) (*Entry, error) {
 
@@ -177,7 +168,16 @@ func (ms *MessageStore) ReadEntry(topic string, offset int64) (*Entry, error) {
 		return nil, fmt.Errorf("topic '%s' not found", topic)
 	}
 
-	entryBytes, err := ms.readEntry(filename, offset)
+	// Get the index entry corresponding to the offset
+	indexFilename := filename + ".idx"
+	idx := newIndex(indexFilename)
+	indexEntry, err := idx.getIndexEntry(offset)
+	if err != nil {
+		return nil, fmt.Errorf("error getting index entry from file: %s, %v", indexFilename, err)
+	}
+
+	// Read the topic entry using the position and length from the index entry
+	entryBytes, err := ms.readEntry(filename, indexEntry.Pos, indexEntry.Length)
 	if err != nil {
 		return nil, fmt.Errorf("error reading entry from file: %v", err)
 	}
@@ -191,8 +191,8 @@ func (ms *MessageStore) ReadEntry(topic string, offset int64) (*Entry, error) {
 	return &entry, nil
 }
 
-// readEntry reads an entry from the specified topic file
-func (ms *MessageStore) readEntry(filename string, offset int64) ([]byte, error) {
+// readEntry reads an entry from the specified topic file, at the specified offset
+func (ms *MessageStore) readEntry(filename string, entryFileOffset, entryLengthInBytes int64) ([]byte, error) {
 	ms.mu.Lock()
 	defer ms.mu.Unlock()
 
@@ -203,21 +203,13 @@ func (ms *MessageStore) readEntry(filename string, offset int64) ([]byte, error)
 	}
 	defer file.Close()
 
-	// Get the index entry corresponding to the offset
-	indexFilename := filename + ".idx"
-	idx := newIndex(indexFilename)
-	indexEntry, err := idx.getIndexEntry(offset)
-	if err != nil {
-		return nil, fmt.Errorf("error getting index entry from file: %s, %v", indexFilename, err)
-	}
-
 	// Seek to the position of the entry in the topic file
-	if _, err := file.Seek(indexEntry.Pos, io.SeekStart); err != nil {
-		return nil, fmt.Errorf("failed to seek to position %d in topic file: %v", indexEntry.Pos, err)
+	if _, err := file.Seek(entryFileOffset, io.SeekStart); err != nil {
+		return nil, fmt.Errorf("failed to seek to position %d in topic file: %v", entryFileOffset, err)
 	}
 
 	// Read the bytes corresponding to the length of the entry
-	entryBytes := make([]byte, indexEntry.Length)
+	entryBytes := make([]byte, entryLengthInBytes)
 	if _, err := file.Read(entryBytes); err != nil {
 		return nil, fmt.Errorf("failed to read entry from topic file: %v", err)
 	}
