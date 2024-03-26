@@ -32,6 +32,8 @@ func NewMessageStore() *MessageStore {
 // Delete will remove the specified topic
 func (ms *MessageStore) Delete(topic string) error {
 
+	fmt.Println("in message_store delete()")
+
 	filename, ok := ms.topics[topic]
 	if !ok {
 		//return fmt.Errorf("topic '%s' not found", topic)
@@ -50,9 +52,10 @@ func (ms *MessageStore) Delete(topic string) error {
 	} else {
 		//fmt.Println("File exists")
 		// Delete the topic file
-		if err := os.Remove(topic); err != nil && !os.IsNotExist(err) {
-			return fmt.Errorf("failed to delete topic file: %v", err)
+		if err := os.Remove(filename); err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("failed to delete topic file: %s, %v", filename, err)
 		}
+		fmt.Println("File deleted")
 	}
 
 	// Delete the index file

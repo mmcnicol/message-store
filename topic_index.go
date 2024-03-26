@@ -30,6 +30,7 @@ func newIndex(filename string) *Index {
 
 // Delete will remove the specified topic index
 func (idx *Index) delete() error {
+	fmt.Println("in topic_index delete()")
 	idx.mu.Lock()
 	defer idx.mu.Unlock()
 
@@ -40,8 +41,9 @@ func (idx *Index) delete() error {
 		//fmt.Println("File exists")
 		// Delete the index file
 		if err := os.Remove(idx.filename); err != nil && !os.IsNotExist(err) {
-			return fmt.Errorf("failed to delete index file: %v", err)
+			return fmt.Errorf("failed to delete index file: %s, %v", idx.filename, err)
 		}
+		fmt.Println("File deleted")
 	}
 
 	return nil
