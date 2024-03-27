@@ -32,6 +32,13 @@ ReadEntry(topic string, offset int64) (*Entry, error)
 
 Delete(topic string)
 
+## associated projects
+
+[message store server](https://github.com/mmcnicol/message-store-server)
+
+[message store sdk](https://github.com/mmcnicol/message-store-sdk)
+
+
 ## inspired by 
 
 kafka
