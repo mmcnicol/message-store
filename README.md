@@ -16,6 +16,12 @@ entries in a topic cannot be queried.
 
 entries in a topic are immutable, meaning they cannot be modified after they are written.
 
+## usage
+
+```
+go get -v github.com/mmcnicol/message-store@v0.0.1
+```
+
 ## public API
 
 NewMessageStore() *MessageStore
