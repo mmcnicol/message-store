@@ -72,14 +72,14 @@ func (ms *MessageStore) Delete(topic string) error {
 // SaveEntry saves an entry to the specified topic
 func (ms *MessageStore) SaveEntry(topic string, entry Entry) (int64, error) {
 
-	filename, ok := ms.topics[topic]
+	_, ok := ms.topics[topic]
 	if !ok {
 		//return 0, fmt.Errorf("topic '%s' not found", topic)
 		ms.topics[topic] = topic + ".data"
 	}
-	filename, ok = ms.topics[topic]
+	filename, ok := ms.topics[topic]
 	if !ok {
-		return 0, fmt.Errorf("topic '%s' not found", topic)
+		return 0, fmt.Errorf("failed to find topic '%s'", topic)
 	}
 
 	// populate Timestamp if it is empty
@@ -90,7 +90,7 @@ func (ms *MessageStore) SaveEntry(topic string, entry Entry) (int64, error) {
 	// Convert Entry to JSON
 	entryJSON, err := json.Marshal(entry)
 	if err != nil {
-		return 0, fmt.Errorf("Error marshaling Entry: %v", err)
+		return 0, fmt.Errorf("failed to marshal Entry: %v", err)
 	}
 
 	// Convert JSON to byte slice
@@ -98,7 +98,7 @@ func (ms *MessageStore) SaveEntry(topic string, entry Entry) (int64, error) {
 
 	position, numberOfBytesWritten, err := ms.writeEntry(filename, entryBytes)
 	if err != nil {
-		return 0, fmt.Errorf("Error writing entry: %v", err)
+		return 0, fmt.Errorf("failed to write entry: %v", err)
 	}
 
 	indexFilename := filename + ".idx"
@@ -121,7 +121,7 @@ func (ms *MessageStore) SaveEntry(topic string, entry Entry) (int64, error) {
 	}
 	err = idx.writeIndexEntry(*indexEntry)
 	if err != nil {
-		return 0, fmt.Errorf("error writing index entry to file: %s, %v", indexFilename, err)
+		return 0, fmt.Errorf("failed to write index entry to file: %s, %v", indexFilename, err)
 	}
 
 	return offset, nil
@@ -136,7 +136,7 @@ func (ms *MessageStore) writeEntry(filename string, entry []byte) (int64, int64,
 	// Open the topic file for writing (append only)
 	file, err := os.OpenFile(filename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
 	if err != nil {
-		return 0, 0, fmt.Errorf("Error opening file: %v", err)
+		return 0, 0, fmt.Errorf("failed to open file: %v", err)
 	}
 	defer file.Close()
 
@@ -158,14 +158,14 @@ func (ms *MessageStore) writeEntry(filename string, entry []byte) (int64, int64,
 // ReadEntry reads an entry from the given offset from the specified topic
 func (ms *MessageStore) ReadEntry(topic string, offset int64) (*Entry, error) {
 
-	filename, ok := ms.topics[topic]
+	_, ok := ms.topics[topic]
 	if !ok {
 		//return nil, fmt.Errorf("topic '%s' not found", topic)
 		ms.topics[topic] = topic + ".data"
 	}
-	filename, ok = ms.topics[topic]
+	filename, ok := ms.topics[topic]
 	if !ok {
-		return nil, fmt.Errorf("topic '%s' not found", topic)
+		return nil, fmt.Errorf("failed to find topic '%s'", topic)
 	}
 
 	// Get the index entry corresponding to the offset
@@ -173,19 +173,19 @@ func (ms *MessageStore) ReadEntry(topic string, offset int64) (*Entry, error) {
 	idx := newIndex(indexFilename)
 	indexEntry, err := idx.getIndexEntry(offset)
 	if err != nil {
-		return nil, fmt.Errorf("error getting index entry from file: %s, %v", indexFilename, err)
+		return nil, fmt.Errorf("failed to get index entry from file: %s, %v", indexFilename, err)
 	}
 
 	// Read the topic entry using the position and length from the index entry
 	entryBytes, err := ms.readEntry(filename, indexEntry.Pos, indexEntry.Length)
 	if err != nil {
-		return nil, fmt.Errorf("error reading entry from file: %v", err)
+		return nil, fmt.Errorf("failed to read entry from file: %v", err)
 	}
 
 	// Convert JSON slice of bytes to Entry
 	var entry Entry
 	if err := json.Unmarshal(entryBytes, &entry); err != nil {
-		return nil, fmt.Errorf("error unmarshaling Entry: %v", err)
+		return nil, fmt.Errorf("failed to unmarshal Entry: %v", err)
 	}
 
 	return &entry, nil
@@ -215,4 +215,55 @@ func (ms *MessageStore) readEntry(filename string, entryFileOffset, entryLengthI
 	}
 
 	return entryBytes, nil
+}
+
+// PollForNextEntry reads an entry from the given offset+1 from the specified topic, after sleeping for the specified poll interval
+func (ms *MessageStore) PollForNextEntry(topic string, offset int64, pollDuration time.Duration) (*Entry, error) {
+
+	_, ok := ms.topics[topic]
+	if !ok {
+		//return nil, fmt.Errorf("topic '%s' not found", topic)
+		ms.topics[topic] = topic + ".data"
+	}
+	filename, ok := ms.topics[topic]
+	if !ok {
+		return nil, fmt.Errorf("failed to find topic '%s'", topic)
+	}
+
+	endTime := time.Now().Add(pollDuration)
+	//entries := []*Entry{}
+
+	for time.Now().Before(endTime) {
+		// Wait for a short duration
+		time.Sleep(51 * time.Millisecond)
+	}
+
+	indexFilename := filename + ".idx"
+	idx := newIndex(indexFilename)
+	count, maxoffset, err := idx.getMaxOffset()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get getMaxOffset: %v", err)
+	}
+
+	// check if the topic is empty
+	if count == 0 {
+		return nil, nil
+	}
+
+	// check if the max offset in the topic index is greater than the given offset
+	if maxoffset > offset {
+
+		// calculate the next offset
+		nextOffset := offset + 1
+
+		// Read entry at the next offset
+		entry, err := ms.ReadEntry(topic, nextOffset)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read 'next' entry from topic %s at offset %d: %v", topic, nextOffset, err)
+		}
+
+		return entry, nil
+	}
+
+	return nil, nil
 }
