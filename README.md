@@ -19,7 +19,7 @@ entries in a topic are immutable, meaning they cannot be modified after they are
 ## usage
 
 ```
-go get -v github.com/mmcnicol/message-store@v0.0.2
+go get -v github.com/mmcnicol/message-store@v0.0.3
 ```
 
 ## public API
