@@ -19,7 +19,7 @@ entries in a topic are immutable, meaning they cannot be modified after they are
 ## usage
 
 ```
-go get -v github.com/mmcnicol/message-store@v0.0.1
+go get -v github.com/mmcnicol/message-store@v0.0.2
 ```
 
 ## public API
@@ -29,6 +29,8 @@ NewMessageStore() *MessageStore
 SaveEntry(topic string, entry Entry) (int64, error)
 
 ReadEntry(topic string, offset int64) (*Entry, error)
+
+PollForNextEntry(topic string, offset int64, pollDuration time.Duration) (*Entry, error)
 
 Delete(topic string)
 
