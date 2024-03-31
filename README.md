@@ -40,6 +40,7 @@ Delete(topic string)
 
 [message store sdk](https://github.com/mmcnicol/message-store-sdk)
 
+[message store demo enbedded](https://github.com/mmcnicol/message-store-demo-embedded)
 
 ## inspired by 
 
