@@ -43,4 +43,4 @@ Delete(topic string)
 
 ## inspired by 
 
-kafka
+[kafka](https://kafka.apache.org/), [nats](https://nats.io/)
